@@ -139,6 +139,9 @@ const app = {
             this.startBanCheck();
             document.getElementById('notif-wrapper').style.display = 'block';
             document.getElementById('fab-btn').style.display = 'flex';
+            if (user.theme) {
+                document.body.classList.toggle('dark-theme', user.theme === 'dark');
+            }
         }
         this.loadBoardOptions();
         this.loadTheme();
@@ -286,14 +289,19 @@ const app = {
             return '<div class="card"><div class="card-body">Нет тредов. Создайте первый!</div></div>';
         }
         
+        const viewerIsAdmin = user && (user.badges && (user.badges.includes('OWNER') || user.badges.includes('Community Lead')));
+        
         return threads.map(t => {
-            const userInfo = t.userInfo || { username: t.author, is_verified: 0, avatar: null, display_name: null, badges: [], is_premium: 0, is_banned: 0 };
-            const displayName = userInfo.display_name || t.author;
-            const avatarHtml = userInfo.avatar 
-                ? `<img src="${API}${userInfo.avatar}" class="user-avatar" alt="${displayName}" onclick="event.stopPropagation();app.showUserProfile('${t.author}')">` 
-                : `<div class="user-avatar user-avatar-placeholder" onclick="event.stopPropagation();app.showUserProfile('${t.author}')">${displayName[0].toUpperCase()}</div>`;
-            const verifiedHtml = userInfo.is_verified ? '<span class="verified-badge"></span>' : '';
-            const bannedBadge = userInfo.is_banned ? '<span class="user-badge-tag ban-badge">BAN</span>' : '';
+            const userInfo = t.userInfo || { username: t.author, is_verified: 0, avatar: null, display_name: null, badges: [], is_premium: 0, is_banned: 0, is_anonymous: 0 };
+            const isAnonymous = userInfo.is_anonymous && !viewerIsAdmin;
+            const displayName = isAnonymous ? 'Аноним' : (userInfo.display_name || t.author);
+            const avatarHtml = isAnonymous 
+                ? `<div class="user-avatar user-avatar-placeholder">A</div>`
+                : userInfo.avatar 
+                    ? `<img src="${API}${userInfo.avatar}" class="user-avatar" alt="${displayName}" onclick="event.stopPropagation();app.showUserProfile('${t.author}')">` 
+                    : `<div class="user-avatar user-avatar-placeholder" onclick="event.stopPropagation();app.showUserProfile('${t.author}')">${displayName[0].toUpperCase()}</div>`;
+            const verifiedHtml = !isAnonymous && userInfo.is_verified ? '<span class="verified-badge"></span>' : '';
+            const bannedBadge = !isAnonymous && userInfo.is_banned ? '<span class="user-badge-tag ban-badge">BAN</span>' : '';
             const pinnedBadge = t.is_pinned ? '<span class="pinned-badge">📌 Закреплено</span>' : '';
             
             return `
@@ -303,8 +311,8 @@ const app = {
                             ${avatarHtml}
                             <div>
                                 <div>
-                                    <span class="author" onclick="event.stopPropagation();app.showUserProfile('${t.author}')">${ui.renderUsername(t.author, displayName, userInfo.is_premium, userInfo.is_banned)}${verifiedHtml}</span>
-                                    ${ui.renderBadges(userInfo.badges, userInfo.is_premium)}
+                                    <span class="author" onclick="event.stopPropagation();${isAnonymous ? '' : `app.showUserProfile('${t.author}')`}">${isAnonymous ? 'Аноним' : ui.renderUsername(t.author, displayName, userInfo.is_premium, userInfo.is_banned)}${verifiedHtml}</span>
+                                    ${isAnonymous ? '' : ui.renderBadges(userInfo.badges, userInfo.is_premium)}
                                     ${bannedBadge}
                                 </div>
                                 <span class="timestamp">${new Date(t.timestamp).toLocaleString('ru')}</span>
@@ -457,13 +465,18 @@ app.renderReplies = function(replies, isAdmin) {
         }
     });
     
+    const viewerIsAdmin = user && (user.badges && (user.badges.includes('OWNER') || user.badges.includes('Community Lead')));
+    
     const renderReply = (r, level = 0) => {
-        const rDisplayName = r.userInfo.display_name || r.author;
-        const rAvatarHtml = r.userInfo.avatar 
-            ? `<img src="${API}${r.userInfo.avatar}" class="user-avatar" alt="${rDisplayName}" onclick="app.showUserProfile('${r.author}')">` 
-            : `<div class="user-avatar user-avatar-placeholder" onclick="app.showUserProfile('${r.author}')">${rDisplayName[0].toUpperCase()}</div>`;
-        const rVerifiedHtml = r.userInfo.is_verified ? '<span class="verified-badge"></span>' : '';
-        const rBannedBadge = r.userInfo.is_banned ? '<span class="user-badge-tag ban-badge">BAN</span>' : '';
+        const isAnonymous = r.userInfo.is_anonymous && !viewerIsAdmin;
+        const rDisplayName = isAnonymous ? 'Аноним' : (r.userInfo.display_name || r.author);
+        const rAvatarHtml = isAnonymous
+            ? `<div class="user-avatar user-avatar-placeholder">A</div>`
+            : r.userInfo.avatar 
+                ? `<img src="${API}${r.userInfo.avatar}" class="user-avatar" alt="${rDisplayName}" onclick="app.showUserProfile('${r.author}')">` 
+                : `<div class="user-avatar user-avatar-placeholder" onclick="app.showUserProfile('${r.author}')">${rDisplayName[0].toUpperCase()}</div>`;
+        const rVerifiedHtml = !isAnonymous && r.userInfo.is_verified ? '<span class="verified-badge"></span>' : '';
+        const rBannedBadge = !isAnonymous && r.userInfo.is_banned ? '<span class="user-badge-tag ban-badge">BAN</span>' : '';
         const rIsOwner = user && user.username === r.author;
         
         let html = `
@@ -473,8 +486,8 @@ app.renderReplies = function(replies, isAdmin) {
                         ${rAvatarHtml}
                         <div>
                             <div>
-                                <span class="author" onclick="app.showUserProfile('${r.author}')">${ui.renderUsername(r.author, rDisplayName, r.userInfo.is_premium, r.userInfo.is_banned)}${rVerifiedHtml}</span>
-                                ${ui.renderBadges(r.userInfo.badges, r.userInfo.is_premium)}
+                                <span class="author" onclick="${isAnonymous ? '' : `app.showUserProfile('${r.author}')`}">${isAnonymous ? 'Аноним' : ui.renderUsername(r.author, rDisplayName, r.userInfo.is_premium, r.userInfo.is_banned)}${rVerifiedHtml}</span>
+                                ${isAnonymous ? '' : ui.renderBadges(r.userInfo.badges, r.userInfo.is_premium)}
                                 ${rBannedBadge}
                             </div>
                             <span class="timestamp">${new Date(r.timestamp).toLocaleString('ru')}</span>
@@ -1004,8 +1017,10 @@ document.getElementById('threadForm').onsubmit = async (e) => {
     const content = document.getElementById('t_content').value;
     if (!content.trim()) return ui.showToast('Введите текст', 'error');
     
+    const selectedBoard = document.getElementById('t_board').value;
+    
     const fd = new FormData();
-    fd.append('board', document.getElementById('t_board').value);
+    fd.append('board', selectedBoard);
     fd.append('title', document.getElementById('t_title').value);
     fd.append('content', content);
     fd.append('author', user.username);
@@ -1016,15 +1031,19 @@ document.getElementById('threadForm').onsubmit = async (e) => {
     if (res.ok) {
         ui.modal('create-modal');
         ui.showToast('Тред создан', 'success');
-        if (currentBoard) {
+        document.getElementById('t_content').value = '';
+        document.getElementById('t_title').value = '';
+        if (currentBoard && currentBoard === selectedBoard) {
             app.loadBoard(currentBoard);
         } else {
-            app.showBoards();
+            app.loadBoard(selectedBoard);
         }
     } else {
         const data = await res.json();
         if (data.muted) {
             ui.showToast('Вы замьючены', 'error');
+        } else if (data.error) {
+            ui.showToast(data.error, 'error');
         }
     }
 };
@@ -1369,4 +1388,141 @@ app.switchAdminTab = function(tab) {
     } else if (tab === 'stats') {
         this.loadAdminStats();
     }
+};
+
+
+app.switchSettingsTab = function(tab) {
+    document.querySelectorAll('.settings-tabs .tab-btn').forEach(btn => btn.classList.remove('active'));
+    const buttons = document.querySelectorAll('.settings-tabs .tab-btn');
+    if (tab === 'security') {
+        buttons[0].classList.add('active');
+        this.loadSecuritySettings();
+    } else if (tab === 'auth') {
+        buttons[1].classList.add('active');
+        this.loadAuthSettings();
+    } else if (tab === 'appearance') {
+        buttons[2].classList.add('active');
+        this.loadAppearanceSettings();
+    }
+};
+
+app.loadSecuritySettings = function() {
+    const isAnonymous = user.is_anonymous || false;
+    
+    document.getElementById('settings-content').innerHTML = `
+        <div class="settings-section">
+            <h3>Анонимность</h3>
+            <p class="settings-desc">В режиме анонима ваш ник и аватарка скрыты от обычных пользователей. Только администраторы с бейджами OWNER и Community Lead видят вашу настоящую личность.</p>
+            <div class="toggle-setting">
+                <label class="toggle-label">
+                    <span>Режим анонима</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="anonymous-toggle" ${isAnonymous ? 'checked' : ''} onchange="app.toggleAnonymous()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </label>
+            </div>
+        </div>
+    `;
+};
+
+app.loadAuthSettings = function() {
+    document.getElementById('settings-content').innerHTML = `
+        <div class="settings-section">
+            <h3>Смена пароля</h3>
+            <input type="password" id="new-password" placeholder="Новый пароль" style="margin-bottom:12px;">
+            <input type="password" id="confirm-password" placeholder="Подтвердите пароль" style="margin-bottom:12px;">
+            <button class="primary-btn" onclick="app.changePassword()">Сменить пароль</button>
+        </div>
+        
+        <div class="settings-section">
+            <h3>Email для восстановления</h3>
+            <p class="settings-desc">Добавьте email для двухфакторной аутентификации и восстановления доступа.</p>
+            <input type="email" id="user-email" placeholder="Email" value="${user.email || ''}" style="margin-bottom:12px;">
+            <button class="primary-btn" onclick="app.updateEmail()">Сохранить email</button>
+        </div>
+    `;
+};
+
+app.loadAppearanceSettings = function() {
+    const currentTheme = user.theme || 'light';
+    
+    document.getElementById('settings-content').innerHTML = `
+        <div class="settings-section">
+            <h3>Тема интерфейса</h3>
+            <div class="theme-selector">
+                <label class="theme-option ${currentTheme === 'light' ? 'active' : ''}" onclick="app.setTheme('light')">
+                    <div class="theme-preview light-preview"></div>
+                    <span>Светлая</span>
+                </label>
+                <label class="theme-option ${currentTheme === 'dark' ? 'active' : ''}" onclick="app.setTheme('dark')">
+                    <div class="theme-preview dark-preview"></div>
+                    <span>Темная</span>
+                </label>
+            </div>
+        </div>
+    `;
+};
+
+app.toggleAnonymous = async function() {
+    const isAnonymous = document.getElementById('anonymous-toggle').checked;
+    
+    await fetch(`${API}/api/user/settings`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ username: user.username, setting: 'anonymous', value: isAnonymous })
+    });
+    
+    user.is_anonymous = isAnonymous ? 1 : 0;
+    localStorage.setItem('user', JSON.stringify(user));
+    ui.showToast(isAnonymous ? 'Режим анонима включен' : 'Режим анонима выключен', 'success');
+};
+
+app.changePassword = async function() {
+    const newPass = document.getElementById('new-password').value;
+    const confirmPass = document.getElementById('confirm-password').value;
+    
+    if (!newPass || !confirmPass) return ui.showToast('Заполните все поля', 'error');
+    if (newPass !== confirmPass) return ui.showToast('Пароли не совпадают', 'error');
+    if (newPass.length < 3) return ui.showToast('Пароль слишком короткий', 'error');
+    
+    await fetch(`${API}/api/user/settings`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ username: user.username, setting: 'password', value: newPass })
+    });
+    
+    ui.showToast('Пароль изменен', 'success');
+    document.getElementById('new-password').value = '';
+    document.getElementById('confirm-password').value = '';
+};
+
+app.updateEmail = async function() {
+    const email = document.getElementById('user-email').value;
+    
+    if (email && !email.includes('@')) return ui.showToast('Неверный email', 'error');
+    
+    await fetch(`${API}/api/user/settings`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ username: user.username, setting: 'email', value: email })
+    });
+    
+    user.email = email;
+    localStorage.setItem('user', JSON.stringify(user));
+    ui.showToast('Email сохранен', 'success');
+};
+
+app.setTheme = async function(theme) {
+    await fetch(`${API}/api/user/settings`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ username: user.username, setting: 'theme', value: theme })
+    });
+    
+    user.theme = theme;
+    localStorage.setItem('user', JSON.stringify(user));
+    document.body.classList.toggle('dark-theme', theme === 'dark');
+    ui.showToast('Тема изменена', 'success');
+    this.loadAppearanceSettings();
 };

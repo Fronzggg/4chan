@@ -114,8 +114,22 @@
                 <input type="file" id="p_avatar" accept="image/*">
                 <input type="text" id="p_display_name" placeholder="Отображаемое имя">
                 <button class="primary-btn" type="submit">Сохранить</button>
+                <button class="secondary-btn" type="button" onclick="ui.modal('profile-modal');ui.modal('settings-modal');app.loadSecuritySettings()">Настройки</button>
                 <button class="secondary-btn" type="button" onclick="app.logout()">Выйти</button>
             </form>
+        </div>
+    </div>
+
+    <div id="settings-modal" class="modal">
+        <div class="modal-card settings-card">
+            <div class="modal-close" onclick="ui.modal('settings-modal')">×</div>
+            <h2>Настройки</h2>
+            <div class="settings-tabs">
+                <button class="tab-btn active" onclick="app.switchSettingsTab('security')">Безопасность</button>
+                <button class="tab-btn" onclick="app.switchSettingsTab('auth')">Аутентификация</button>
+                <button class="tab-btn" onclick="app.switchSettingsTab('appearance')">Вид</button>
+            </div>
+            <div id="settings-content"></div>
         </div>
     </div>
 

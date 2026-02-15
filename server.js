@@ -7,7 +7,19 @@ const fs = require('fs');
 const crypto = require('crypto');
 
 const app = express();
-const db = new sqlite3.Database('./forum.db');
+
+const dataDir = process.env.NODE_ENV === 'production' ? '/opt/render/project/src/data' : '.';
+const uploadsDir = path.join(dataDir, 'uploads');
+const dbPath = path.join(dataDir, 'forum.db');
+
+if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+}
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+const db = new sqlite3.Database(dbPath);
 
 const ENC_KEY = crypto.randomBytes(32);
 const ENC_IV = crypto.randomBytes(16);
@@ -57,9 +69,8 @@ const checkContent = (content, username) => {
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        const dir = './uploads/';
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir);
-        cb(null, dir);
+        if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+        cb(null, uploadsDir);
     },
     filename: (req, file, cb) => {
         cb(null, Date.now() + path.extname(file.originalname));
@@ -69,7 +80,7 @@ const upload = multer({ storage: storage, limits: { fileSize: 10 * 1024 * 1024 }
 
 app.use(cors());
 app.use(express.json());
-app.use('/uploads', express.static('uploads'));
+app.use('/uploads', express.static(uploadsDir));
 app.use(express.static('.'));
 
 app.use((req, res, next) => {
@@ -86,6 +97,8 @@ db.serialize(() => {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE,
         password TEXT,
+        email TEXT DEFAULT NULL,
+        two_factor_secret TEXT DEFAULT NULL,
         is_verified INTEGER DEFAULT 0,
         avatar TEXT DEFAULT NULL,
         display_name TEXT DEFAULT NULL,
@@ -96,6 +109,8 @@ db.serialize(() => {
         ban_until DATETIME DEFAULT NULL,
         is_muted INTEGER DEFAULT 0,
         mute_until DATETIME DEFAULT NULL,
+        is_anonymous INTEGER DEFAULT 0,
+        theme TEXT DEFAULT 'light',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
@@ -430,7 +445,7 @@ app.post('/api/notifications/read', (req, res) => {
 });
 
 app.get('/api/user/:username', (req, res) => {
-    db.get("SELECT id, username, is_verified, avatar, display_name, badges, is_premium, is_banned, ban_reason, ban_until, is_muted, mute_until, created_at FROM users WHERE username = ?", [req.params.username], (err, row) => {
+    db.get("SELECT id, username, is_verified, avatar, display_name, badges, is_premium, is_banned, ban_reason, ban_until, is_muted, mute_until, is_anonymous, theme, email, created_at FROM users WHERE username = ?", [req.params.username], (err, row) => {
         if (row) {
             if (row.badges) {
                 row.badges = JSON.parse(row.badges);
@@ -462,6 +477,30 @@ app.post('/api/user/update', upload.single('avatar'), (req, res) => {
         db.run("UPDATE users SET display_name = ? WHERE username = ?", [display_name, username], () => {
             res.json({ success: true });
         });
+    }
+});
+
+app.post('/api/user/settings', (req, res) => {
+    const { username, setting, value } = req.body;
+    
+    if (setting === 'password') {
+        db.run("UPDATE users SET password = ? WHERE username = ?", [value, username], () => {
+            res.json({ success: true });
+        });
+    } else if (setting === 'email') {
+        db.run("UPDATE users SET email = ? WHERE username = ?", [value, username], () => {
+            res.json({ success: true });
+        });
+    } else if (setting === 'anonymous') {
+        db.run("UPDATE users SET is_anonymous = ? WHERE username = ?", [value ? 1 : 0, username], () => {
+            res.json({ success: true });
+        });
+    } else if (setting === 'theme') {
+        db.run("UPDATE users SET theme = ? WHERE username = ?", [value, username], () => {
+            res.json({ success: true });
+        });
+    } else {
+        res.status(400).json({ error: 'Invalid setting' });
     }
 });
 
@@ -610,4 +649,12 @@ app.get('/api/admin/stats', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server on ${PORT}`));
+app.listen(PORT, () => {
+    console.log(`Server on ${PORT}`);
+    console.log(`Database: ${dbPath}`);
+    console.log(`Uploads: ${uploadsDir}`);
+    
+    if (process.env.NODE_ENV === 'production') {
+        require('./keep-alive');
+    }
+});
