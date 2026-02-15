@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LeS Forum</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="theme-dark.css">
+</head>
+<body>
+    <nav class="nav">
+        <div class="nav-container">
+            <div class="logo" onclick="app.showBoards()">LeS</div>
+            <div class="nav-right">
+                <button class="icon-btn theme-toggle" onclick="app.toggleTheme()" title="Сменить тему">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <line x1="12" y1="1" x2="12" y2="3"/>
+                        <line x1="12" y1="21" x2="12" y2="23"/>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                        <line x1="1" y1="12" x2="3" y2="12"/>
+                        <line x1="21" y1="12" x2="23" y2="12"/>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                    </svg>
+                </button>
+                <div class="notif-wrapper" id="notif-wrapper" style="display:none;">
+                    <button class="icon-btn" onclick="ui.toggleNotifs()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                        </svg>
+                        <span id="notif-badge" class="badge hidden">0</span>
+                    </button>
+                    <div id="notif-dropdown" class="dropdown hidden"></div>
+                </div>
+                <div id="user-area"></div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div id="feed"></div>
+    </div>
+
+    <div class="fab" onclick="ui.showCreateThread()" id="fab-btn" style="display:none;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <div id="confirm-modal" class="modal">
+        <div class="modal-card confirm-card">
+            <h3 id="confirm-title">Подтвердите действие</h3>
+            <p id="confirm-message"></p>
+            <div class="confirm-buttons">
+                <button class="primary-btn" id="confirm-yes">Да</button>
+                <button class="secondary-btn" id="confirm-no">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="login-modal" class="modal">
+        <div class="modal-card">
+            <div class="modal-close" onclick="ui.modal('login-modal')">×</div>
+            <form id="loginForm">
+                <h2>Вход</h2>
+                <input type="text" id="l_user" placeholder="Логин" required autocomplete="username">
+                <input type="password" id="l_pass" placeholder="Пароль" required autocomplete="current-password">
+                <button class="primary-btn" type="submit">Войти</button>
+                <button class="secondary-btn" type="button" onclick="ui.switchToRegister()">Регистрация</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="register-modal" class="modal">
+        <div class="modal-card">
+            <div class="modal-close" onclick="ui.modal('register-modal')">×</div>
+            <form id="registerForm">
+                <h2>Регистрация</h2>
+                <input type="text" id="r_user" placeholder="Логин" required autocomplete="username">
+                <input type="password" id="r_pass" placeholder="Пароль" required autocomplete="new-password">
+                <button class="primary-btn" type="submit">Создать</button>
+                <button class="secondary-btn" type="button" onclick="ui.switchToLogin()">Уже есть аккаунт</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="create-modal" class="modal">
+        <div class="modal-card">
+            <div class="modal-close" onclick="ui.modal('create-modal')">×</div>
+            <form id="threadForm">
+                <h2>Создать тред</h2>
+                <select id="t_board"></select>
+                <input type="text" id="t_title" placeholder="Заголовок (опционально)">
+                <textarea id="t_content" rows="5" placeholder="Текст сообщения..." required></textarea>
+                <input type="file" id="t_file" accept="image/*,video/*">
+                <button class="primary-btn" type="submit">Создать</button>
+                <button class="secondary-btn" type="button" onclick="ui.modal('create-modal')">Отмена</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="profile-modal" class="modal">
+        <div class="modal-card">
+            <div class="modal-close" onclick="ui.modal('profile-modal')">×</div>
+            <form id="profileForm">
+                <h2>Редактировать профиль</h2>
+                <div class="avatar-preview" id="avatar-preview"></div>
+                <input type="file" id="p_avatar" accept="image/*">
+                <input type="text" id="p_display_name" placeholder="Отображаемое имя">
+                <button class="primary-btn" type="submit">Сохранить</button>
+                <button class="secondary-btn" type="button" onclick="app.logout()">Выйти</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="user-profile-modal" class="modal">
+        <div class="modal-card">
+            <div class="modal-close" onclick="ui.modal('user-profile-modal')">×</div>
+            <div id="user-profile-content"></div>
+        </div>
+    </div>
+
+    <div id="admin-modal" class="modal">
+        <div class="modal-card admin-card">
+            <div class="modal-close" onclick="ui.modal('admin-modal')">×</div>
+            <h2>Админ-панель</h2>
+            <div class="admin-tabs">
+                <button class="tab-btn active" onclick="app.switchAdminTab('users')">Пользователи</button>
+                <button class="tab-btn" onclick="app.switchAdminTab('boards')">Разделы</button>
+                <button class="tab-btn" onclick="app.switchAdminTab('reports')">Жалобы</button>
+                <button class="tab-btn" onclick="app.switchAdminTab('stats')">Статистика</button>
+            </div>
+            <div id="admin-content"></div>
+        </div>
+    </div>
+
+    <div id="create-board-modal" class="modal">
+        <div class="modal-card">
+            <div class="modal-close" onclick="ui.modal('create-board-modal')">×</div>
+            <form id="createBoardForm">
+                <h2>Создать раздел</h2>
+                <input type="text" id="board_code" placeholder="Код раздела (например: tech)" required pattern="[a-z]+" maxlength="10">
+                <input type="text" id="board_name" placeholder="Название раздела" required>
+                <textarea id="board_desc" rows="3" placeholder="Описание раздела" required></textarea>
+                <button class="primary-btn" type="submit">Создать</button>
+                <button class="secondary-btn" type="button" onclick="ui.modal('create-board-modal')">Отмена</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="badges-modal" class="modal">
+        <div class="modal-card">
+            <div class="modal-close" onclick="ui.modal('badges-modal')">×</div>
+            <h2>Управление бейджами</h2>
+            <p id="badges-username"></p>
+            <div class="badges-selector">
+                <label><input type="checkbox" value="ADMIN"> ADMIN</label>
+                <label><input type="checkbox" value="OWNER"> OWNER</label>
+                <label><input type="checkbox" value="MODER"> MODER</label>
+                <label><input type="checkbox" value="Community Lead"> Community Lead</label>
+            </div>
+            <button class="primary-btn" onclick="app.saveBadges()">Сохранить</button>
+        </div>
+    </div>
+
+    <div id="ban-info-modal" class="modal" style="z-index:9999;">
+        <div class="modal-card ban-modal-card">
+            <h2>🚫 Вы забанены</h2>
+            <div id="ban-info-content"></div>
+            <button class="primary-btn" onclick="app.logout()">Выйти</button>
+        </div>
+    </div>
+
+    <div id="ban-modal" class="modal">
+        <div class="modal-card">
+            <div class="modal-close" onclick="ui.modal('ban-modal')">×</div>
+            <h2>Забанить пользователя</h2>
+            <p id="ban-username"></p>
+            <input type="text" id="ban-reason" placeholder="Причина бана" required>
+            <input type="number" id="ban-duration" placeholder="Длительность (часы)" min="1">
+            <button class="primary-btn" onclick="app.executeBan()">Забанить</button>
+        </div>
+    </div>
+
+    <div id="mute-modal" class="modal">
+        <div class="modal-card">
+            <div class="modal-close" onclick="ui.modal('mute-modal')">×</div>
+            <h2>Замьютить пользователя</h2>
+            <p id="mute-username"></p>
+            <input type="number" id="mute-duration" placeholder="Длительность (часы)" min="1">
+            <button class="primary-btn" onclick="app.executeMute()">Замьютить</button>
+        </div>
+    </div>
+
+    <div id="report-modal" class="modal">
+        <div class="modal-card">
+            <div class="modal-close" onclick="ui.modal('report-modal')">×</div>
+            <h2>Пожаловаться</h2>
+            <p id="report-target"></p>
+            <textarea id="report-reason" rows="4" placeholder="Причина жалобы..." required></textarea>
+            <button class="primary-btn" onclick="app.submitReport()">Отправить жалобу</button>
+        </div>
+    </div>
+
+    <div id="report-detail-modal" class="modal">
+        <div class="modal-card">
+            <div class="modal-close" onclick="ui.modal('report-detail-modal')">×</div>
+            <div id="report-detail-content"></div>
+        </div>
+    </div>
+
+    <script>
+        try {
+            const userData = localStorage.getItem('user');
+            if (userData && !userData.startsWith('{')) {
+                console.log('Clearing corrupted localStorage');
+                localStorage.clear();
+            }
+        } catch (e) {
+            localStorage.clear();
+        }
+    </script>
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #0d1117;
+        --card: #161b22;
+        --border: #30363d;
+        --text: #c9d1d9;
+        --text-dim: #8b949e;
+        --accent: #58a6ff;
+        --hover: #21262d;
+        --shadow: rgba(0,0,0,0.3);
+    }
+
+    .card-img {
+        background: #000;
+    }
+
+    .notif-item.unread {
+        background: #1c2d41;
+        border-left: 3px solid var(--accent);
+    }
+
+    input, textarea, select {
+        background: #0d1117;
+        border: 1px solid var(--border);
+        color: var(--text);
+    }
+
+    .secondary-btn {
+        background: var(--hover);
+        color: var(--text);
+        border: 1px solid var(--border);
+    }
+
+    .secondary-btn:hover {
+        background: var(--border);
+    }
+}
