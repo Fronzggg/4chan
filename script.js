@@ -187,7 +187,7 @@ const app = {
                 return userData;
             }
         } catch (e) {}
-        return { username, is_verified: 0, avatar: null, display_name: null, badges: [], is_premium: 0, is_banned: 0 };
+        return { username, is_verified: 0, avatar: null, display_name: null, badges: [], is_premium: 0, is_banned: 0, is_anonymous: 0 };
     },
 
     renderUser() {
@@ -293,7 +293,7 @@ const app = {
         
         return threads.map(t => {
             const userInfo = t.userInfo || { username: t.author, is_verified: 0, avatar: null, display_name: null, badges: [], is_premium: 0, is_banned: 0, is_anonymous: 0 };
-            const isAnonymous = userInfo.is_anonymous && !viewerIsAdmin;
+            const isAnonymous = (userInfo.is_anonymous === 1 || userInfo.is_anonymous === true) && !viewerIsAdmin;
             const displayName = isAnonymous ? 'Аноним' : (userInfo.display_name || t.author);
             const avatarHtml = isAnonymous 
                 ? `<div class="user-avatar user-avatar-placeholder">A</div>`
@@ -360,12 +360,16 @@ app.openThread = async function(id) {
     }
     
     const feed = document.getElementById('feed');
-    const displayName = t.userInfo.display_name || t.author;
-    const avatarHtml = t.userInfo.avatar 
-        ? `<img src="${API}${t.userInfo.avatar}" class="user-avatar-large" alt="${displayName}" onclick="app.showUserProfile('${t.author}')">` 
-        : `<div class="user-avatar-large user-avatar-placeholder" onclick="app.showUserProfile('${t.author}')">${displayName[0].toUpperCase()}</div>`;
-    const verifiedHtml = t.userInfo.is_verified ? '<span class="verified-badge"></span>' : '';
-    const bannedBadge = t.userInfo.is_banned ? '<span class="user-badge-tag ban-badge">BAN</span>' : '';
+    const viewerIsAdmin = user && (user.badges && (user.badges.includes('OWNER') || user.badges.includes('Community Lead')));
+    const isThreadAuthorAnonymous = (t.userInfo.is_anonymous === 1 || t.userInfo.is_anonymous === true) && !viewerIsAdmin;
+    const displayName = isThreadAuthorAnonymous ? 'Аноним' : (t.userInfo.display_name || t.author);
+    const avatarHtml = isThreadAuthorAnonymous
+        ? `<div class="user-avatar-large user-avatar-placeholder">A</div>`
+        : t.userInfo.avatar 
+            ? `<img src="${API}${t.userInfo.avatar}" class="user-avatar-large" alt="${displayName}" onclick="app.showUserProfile('${t.author}')">` 
+            : `<div class="user-avatar-large user-avatar-placeholder" onclick="app.showUserProfile('${t.author}')">${displayName[0].toUpperCase()}</div>`;
+    const verifiedHtml = !isThreadAuthorAnonymous && t.userInfo.is_verified ? '<span class="verified-badge"></span>' : '';
+    const bannedBadge = !isThreadAuthorAnonymous && t.userInfo.is_banned ? '<span class="user-badge-tag ban-badge">BAN</span>' : '';
     const isAdmin = user && user.is_verified;
     const isOwner = user && user.username === t.author;
     
@@ -383,8 +387,8 @@ app.openThread = async function(id) {
                     ${avatarHtml}
                     <div>
                         <div>
-                            <span class="author-large" onclick="app.showUserProfile('${t.author}')">${ui.renderUsername(t.author, displayName, t.userInfo.is_premium, t.userInfo.is_banned)}${verifiedHtml}</span>
-                            ${ui.renderBadges(t.userInfo.badges, t.userInfo.is_premium)}
+                            <span class="author-large" onclick="${isThreadAuthorAnonymous ? '' : `app.showUserProfile('${t.author}')`}">${isThreadAuthorAnonymous ? 'Аноним' : ui.renderUsername(t.author, displayName, t.userInfo.is_premium, t.userInfo.is_banned)}${verifiedHtml}</span>
+                            ${isThreadAuthorAnonymous ? '' : ui.renderBadges(t.userInfo.badges, t.userInfo.is_premium)}
                             ${bannedBadge}
                         </div>
                         <span class="timestamp">${new Date(t.timestamp).toLocaleString('ru')} • 👁 ${t.views || 0} просмотров</span>
@@ -468,7 +472,7 @@ app.renderReplies = function(replies, isAdmin) {
     const viewerIsAdmin = user && (user.badges && (user.badges.includes('OWNER') || user.badges.includes('Community Lead')));
     
     const renderReply = (r, level = 0) => {
-        const isAnonymous = r.userInfo.is_anonymous && !viewerIsAdmin;
+        const isAnonymous = (r.userInfo.is_anonymous === 1 || r.userInfo.is_anonymous === true) && !viewerIsAdmin;
         const rDisplayName = isAnonymous ? 'Аноним' : (r.userInfo.display_name || r.author);
         const rAvatarHtml = isAnonymous
             ? `<div class="user-avatar user-avatar-placeholder">A</div>`
@@ -1407,7 +1411,7 @@ app.switchSettingsTab = function(tab) {
 };
 
 app.loadSecuritySettings = function() {
-    const isAnonymous = user.is_anonymous || false;
+    const isAnonymous = user.is_anonymous === 1 || user.is_anonymous === true;
     
     document.getElementById('settings-content').innerHTML = `
         <div class="settings-section">
@@ -1467,15 +1471,18 @@ app.loadAppearanceSettings = function() {
 app.toggleAnonymous = async function() {
     const isAnonymous = document.getElementById('anonymous-toggle').checked;
     
-    await fetch(`${API}/api/user/settings`, {
+    const res = await fetch(`${API}/api/user/settings`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ username: user.username, setting: 'anonymous', value: isAnonymous })
     });
     
-    user.is_anonymous = isAnonymous ? 1 : 0;
-    localStorage.setItem('user', JSON.stringify(user));
-    ui.showToast(isAnonymous ? 'Режим анонима включен' : 'Режим анонима выключен', 'success');
+    if (res.ok) {
+        user.is_anonymous = isAnonymous ? 1 : 0;
+        localStorage.setItem('user', JSON.stringify(user));
+        await app.loadUserData();
+        ui.showToast(isAnonymous ? 'Режим анонима включен' : 'Режим анонима выключен', 'success');
+    }
 };
 
 app.changePassword = async function() {
